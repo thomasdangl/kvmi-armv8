@@ -50,6 +50,7 @@
 
 #define KVM_DIRTY_LOG_MANUAL_CAPS   (KVM_DIRTY_LOG_MANUAL_PROTECT_ENABLE | \
 				     KVM_DIRTY_LOG_INITIALLY_SET)
+#include <asm/kvmi_host.h>
 
 /*
  * Mode of operation configurable with kvm-arm.mode early param.
@@ -384,6 +385,9 @@ struct kvm_vcpu_arch {
 		u64 last_steal;
 		gpa_t base;
 	} steal;
+
+	/* Control the interception of MSRs/CRs/BP... */
+	struct kvmi_interception *kvmi;
 };
 
 /* Pointer to the vcpu's SVE FFR for sve_{save,load}_state() */
@@ -797,5 +801,7 @@ void __init kvm_hyp_reserve(void);
 #else
 static inline void kvm_hyp_reserve(void) { }
 #endif
+
+extern bool enable_introspection;
 
 #endif /* __ARM64_KVM_HOST_H__ */

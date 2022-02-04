@@ -43,6 +43,16 @@ menuconfig KVM
 
 	  If unsure, say N.
 
+config KVM_INTROSPECTION
+	bool "KVM Introspection"
+	depends on KVM
+	select KVM_EXTERNAL_WRITE_TRACKING
+	default n
+	help
+	  Provides the introspection interface, which allows the control
+	  of any running VM. It must be explicitly enabled by setting
+	  the kvm.introspection module parameter.
+
 if KVM
 
 source "virt/kvm/Kconfig"

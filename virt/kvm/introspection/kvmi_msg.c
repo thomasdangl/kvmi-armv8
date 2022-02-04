@@ -217,13 +217,15 @@ static int handle_vm_read_physical(struct kvm_introspection *kvmi,
 				   const void *_req)
 {
 	const struct kvmi_vm_read_physical *req = _req;
+	int ret;
 
 	if (invalid_page_access(req->gpa, req->size) ||
 	    req->padding1 || req->padding2)
 		return kvmi_msg_vm_reply(kvmi, msg, -KVM_EINVAL, NULL, 0);
 
-	return kvmi_cmd_read_physical(kvmi->kvm, req->gpa, req->size,
+	ret = kvmi_cmd_read_physical(kvmi->kvm, req->gpa, req->size,
 				      kvmi_msg_vm_reply, msg);
+	return ret;
 }
 
 static int handle_vm_write_physical(struct kvm_introspection *kvmi,
@@ -593,7 +595,13 @@ static int kvmi_msg_handle_vm_cmd(struct kvm_introspection *kvmi,
 static bool vcpu_can_handle_messages(struct kvm_vcpu *vcpu)
 {
 	return VCPUI(vcpu)->waiting_for_reply
+#ifdef CONFIG_X86
 		|| vcpu->arch.mp_state != KVM_MP_STATE_UNINITIALIZED;
+#elif CONFIG_ARM64
+		|| vcpu->run->exit_reason == KVM_EXIT_UNKNOWN;
+#else
+	;
+#endif
 }
 
 static int kvmi_get_vcpu_if_ready(struct kvm_introspection *kvmi,

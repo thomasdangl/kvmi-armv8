@@ -113,6 +113,7 @@ struct kvm_vcpu_init {
 };
 
 struct kvm_sregs {
+	__u64 sys_regs[122];
 };
 
 struct kvm_fpu {

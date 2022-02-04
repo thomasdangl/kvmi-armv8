@@ -22,6 +22,7 @@
 #include <linux/irqbypass.h>
 #include <linux/sched/stat.h>
 #include <linux/psci.h>
+#include <linux/kvmi_host.h>
 #include <trace/events/kvm.h>
 
 #define CREATE_TRACE_POINTS
@@ -275,6 +276,10 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_ARM_PTRAUTH_ADDRESS:
 	case KVM_CAP_ARM_PTRAUTH_GENERIC:
 		r = system_has_full_ptr_auth();
+		break;
+	case KVM_CAP_INTROSPECTION:
+		if (enable_introspection)
+			r = kvmi_version();
 		break;
 	default:
 		r = 0;
@@ -787,6 +792,9 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 	ret = 1;
 	run->exit_reason = KVM_EXIT_UNKNOWN;
 	while (ret > 0) {
+		if (kvm_check_request(KVM_REQ_INTROSPECTION, vcpu))
+			kvmi_handle_requests(vcpu);
+
 		/*
 		 * Check conditions before entering the guest
 		 */

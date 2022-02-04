@@ -4370,6 +4370,10 @@ static long kvm_vm_ioctl(struct file *filp,
 
 	if (kvm->mm != current->mm || kvm->vm_bugged)
 		return -EIO;
+#ifdef CONFIG_KVM_INTROSPECTION
+	if (ioctl == KVM_INTROSPECTION_HOOK)
+		printk("hook enabled: %d!\n", enable_introspection);
+#endif
 	switch (ioctl) {
 	case KVM_CREATE_VCPU:
 		r = kvm_vm_ioctl_create_vcpu(kvm, arg);
