@@ -27,6 +27,15 @@ struct kvmi_interception {
 struct kvm_vcpu_arch_introspection {
 	struct kvm_regs delayed_regs;
 	bool have_delayed_regs;
+
+	struct {
+		u8 nr;
+		u32 error_code;
+		bool error_code_valid;
+		u64 address;
+		bool pending;
+		bool send_event;
+	} exception;
 };
 
 struct kvm_arch_introspection {

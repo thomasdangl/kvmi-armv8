@@ -386,6 +386,13 @@ struct kvm_vcpu_arch {
 		gpa_t base;
 	} steal;
 
+	/* Queued fault */
+	struct kvm_queued_exception {
+		bool pending;
+		bool injected;
+		u8 nr;
+	} exception;
+
 	/* Control the interception of MSRs/CRs/BP... */
 	struct kvmi_interception *kvmi;
 };
@@ -736,6 +743,7 @@ int kvm_arm_vcpu_arch_has_attr(struct kvm_vcpu *vcpu,
 
 long kvm_vm_ioctl_mte_copy_tags(struct kvm *kvm,
 				struct kvm_arm_copy_mte_tags *copy_tags);
+bool kvm_inject_pending_exception(struct kvm_vcpu *vcpu);
 
 /* Guest/host FPSIMD coordination helpers */
 int kvm_arch_vcpu_run_map_fp(struct kvm_vcpu *vcpu);

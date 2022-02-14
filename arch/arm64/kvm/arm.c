@@ -2051,6 +2051,18 @@ void kvm_arch_irq_bypass_start(struct irq_bypass_consumer *cons)
 	kvm_arm_resume_guest(irqfd->kvm);
 }
 
+bool kvm_inject_pending_exception(struct kvm_vcpu *vcpu)
+{
+	if (vcpu->arch.exception.pending) {
+		vcpu->arch.exception.pending = false;
+		vcpu->arch.exception.injected = true;
+		// TODO: actually queue it.
+		return true;
+	}
+
+	return false;
+}
+
 /**
  * Initialize Hyp-mode and memory mappings on all CPUs.
  */

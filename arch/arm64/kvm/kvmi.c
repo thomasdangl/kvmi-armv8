@@ -24,104 +24,13 @@ void kvmi_arch_init_vcpu_events_mask(unsigned long *supported)
 	set_bit(KVMI_VCPU_EVENT_XSETBV, supported);
 }
 
-#if 0
-static bool kvmi_track_preread(struct kvm_vcpu *vcpu, gpa_t gpa, gva_t gva,
-			       int bytes,
-			       struct kvm_page_track_notifier_node *node);
-static bool kvmi_track_prewrite(struct kvm_vcpu *vcpu, gpa_t gpa, gva_t gva,
-				const u8 *new, int bytes,
-				struct kvm_page_track_notifier_node *node);
-static bool kvmi_track_preexec(struct kvm_vcpu *vcpu, gpa_t gpa, gva_t gva,
-			       struct kvm_page_track_notifier_node *node);
-static void kvmi_track_create_slot(struct kvm *kvm,
-				   struct kvm_memory_slot *slot,
-				   unsigned long npages,
-				   struct kvm_page_track_notifier_node *node);
-static void kvmi_track_flush_slot(struct kvm *kvm, struct kvm_memory_slot *slot,
-				  struct kvm_page_track_notifier_node *node);
-
-static unsigned int kvmi_vcpu_mode(const struct kvm_vcpu *vcpu,
-				   const struct kvm_sregs *sregs)
-{
-	unsigned int mode = 0;
-
-	if (is_long_mode((struct kvm_vcpu *) vcpu)) {
-		if (sregs->cs.l)
-			mode = 8;
-		else if (!sregs->cs.db)
-			mode = 2;
-		else
-			mode = 4;
-	} else if (sregs->cr0 & X86_CR0_PE) {
-		if (!sregs->cs.db)
-			mode = 2;
-		else
-			mode = 4;
-	} else if (!sregs->cs.db) {
-		mode = 2;
-	} else {
-		mode = 4;
-	}
-
-	return mode;
-}
-
-static void kvmi_get_msrs(struct kvm_vcpu *vcpu,
-			  struct kvmi_vcpu_event_arch *event)
-{
-	struct msr_data msr;
-
-	msr.host_initiated = true;
-
-	msr.index = MSR_IA32_SYSENTER_CS;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.sysenter_cs = msr.data;
-
-	msr.index = MSR_IA32_SYSENTER_ESP;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.sysenter_esp = msr.data;
-
-	msr.index = MSR_IA32_SYSENTER_EIP;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.sysenter_eip = msr.data;
-
-	msr.index = MSR_EFER;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.efer = msr.data;
-
-	msr.index = MSR_STAR;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.star = msr.data;
-
-	msr.index = MSR_LSTAR;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.lstar = msr.data;
-
-	msr.index = MSR_CSTAR;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.cstar = msr.data;
-
-	msr.index = MSR_IA32_CR_PAT;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.pat = msr.data;
-
-	msr.index = MSR_KERNEL_GS_BASE;
-	static_call(kvm_x86_get_msr)(vcpu, &msr);
-	event->msrs.shadow_gs = msr.data;
-}
-#endif
-
 void kvmi_arch_setup_vcpu_event(struct kvm_vcpu *vcpu,
 				struct kvmi_vcpu_event *ev)
 {
-#if 0
 	struct kvmi_vcpu_event_arch *event = &ev->arch;
 
 	kvm_arch_vcpu_get_regs(vcpu, &event->regs);
 	kvm_arch_vcpu_get_sregs(vcpu, &event->sregs);
-	ev->arch.mode = kvmi_vcpu_mode(vcpu, &event->sregs);
-	kvmi_get_msrs(vcpu, event);
-#endif
 }
 
 int kvmi_arch_cmd_vcpu_get_registers(struct kvm_vcpu *vcpu,
@@ -712,25 +621,19 @@ EXPORT_SYMBOL(kvmi_cr3_intercepted);
 int kvmi_arch_cmd_vcpu_inject_exception(struct kvm_vcpu *vcpu,
 					const struct kvmi_vcpu_inject_exception *req)
 {
-#if 0
 	struct kvm_vcpu_arch_introspection *arch = &VCPUI(vcpu)->arch;
-	bool has_error;
 
 	arch->exception.pending = true;
-
-	has_error = x86_exception_has_error_code(req->nr);
-
 	arch->exception.nr = req->nr;
-	arch->exception.error_code = has_error ? req->error_code : 0;
-	arch->exception.error_code_valid = has_error;
 	arch->exception.address = req->address;
-#endif
+
 	return 0;
 }
-#if 0
+
 static void kvmi_queue_exception(struct kvm_vcpu *vcpu)
 {
-	struct kvm_vcpu_arch_introspection *arch = &VCPUI(vcpu)->arch;
+	// TODO:
+	/*struct kvm_vcpu_arch_introspection *arch = &VCPUI(vcpu)->arch;
 	struct x86_exception e = {
 		.vector = arch->exception.nr,
 		.error_code_valid = arch->exception.error_code_valid,
@@ -743,7 +646,7 @@ static void kvmi_queue_exception(struct kvm_vcpu *vcpu)
 	else if (e.error_code_valid)
 		kvm_queue_exception_e(vcpu, e.vector, e.error_code);
 	else
-		kvm_queue_exception(vcpu, e.vector);
+		kvm_queue_exception(vcpu, e.vector);*/
 }
 
 static void kvmi_save_injected_event(struct kvm_vcpu *vcpu)
@@ -753,22 +656,15 @@ static void kvmi_save_injected_event(struct kvm_vcpu *vcpu)
 	vcpui->arch.exception.error_code = 0;
 	vcpui->arch.exception.error_code_valid = false;
 
-	vcpui->arch.exception.address = vcpu->arch.cr2;
-	if (vcpu->arch.exception.injected) {
-		vcpui->arch.exception.nr = vcpu->arch.exception.nr;
-		vcpui->arch.exception.error_code_valid =
-			x86_exception_has_error_code(vcpu->arch.exception.nr);
-		vcpui->arch.exception.error_code = vcpu->arch.exception.error_code;
-	} else if (vcpu->arch.interrupt.injected) {
-		vcpui->arch.exception.nr = vcpu->arch.interrupt.nr;
-	}
+	vcpui->arch.exception.nr = vcpu->arch.fault.esr_el2;
+	vcpui->arch.exception.address = vcpu->arch.fault.far_el2;
 }
 
 static void kvmi_inject_pending_exception(struct kvm_vcpu *vcpu)
 {
 	struct kvm_vcpu_introspection *vcpui = VCPUI(vcpu);
 
-	if (!kvm_event_needs_reinjection(vcpu)) {
+	if (!vcpu->arch.exception.injected) {
 		kvmi_queue_exception(vcpu);
 		kvm_inject_pending_exception(vcpu);
 	}
@@ -779,7 +675,7 @@ static void kvmi_inject_pending_exception(struct kvm_vcpu *vcpu)
 	vcpui->arch.exception.send_event = true;
 	kvm_make_request(KVM_REQ_INTROSPECTION, vcpu);
 }
-#endif
+
 void kvmi_enter_guest(struct kvm_vcpu *vcpu)
 {
 	struct kvm_vcpu_introspection *vcpui;
@@ -791,14 +687,13 @@ void kvmi_enter_guest(struct kvm_vcpu *vcpu)
 
 		if (vcpui->singlestep.loop)
 			kvmi_arch_start_singlestep(vcpu);
-		//else if (vcpui->arch.exception.pending)
-		//	kvmi_inject_pending_exception(vcpu);
+		else if (vcpui->arch.exception.pending)
+			kvmi_inject_pending_exception(vcpu);
 
 		kvmi_put(vcpu->kvm);
 	}
 }
 
-#if 0
 static void kvmi_send_trap_event(struct kvm_vcpu *vcpu)
 {
 	u32 action;
@@ -811,18 +706,15 @@ static void kvmi_send_trap_event(struct kvm_vcpu *vcpu)
 		kvmi_handle_common_event_actions(vcpu, action);
 	}
 }
-#endif
 
 void kvmi_arch_send_pending_event(struct kvm_vcpu *vcpu)
 {
-#if 0
 	struct kvm_vcpu_introspection *vcpui = VCPUI(vcpu);
 
 	if (vcpui->arch.exception.send_event) {
 		vcpui->arch.exception.send_event = false;
 		kvmi_send_trap_event(vcpu);
 	}
-#endif
 }
 
 #if 0
