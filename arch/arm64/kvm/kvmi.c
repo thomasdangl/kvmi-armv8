@@ -8,6 +8,7 @@
 #include "linux/kvm_host.h"
 #include "../../../virt/kvm/introspection/kvmi_int.h"
 #include "kvmi.h"
+#include <asm/kvm_pgtable.h>
 
 void kvmi_arch_init_vcpu_events_mask(unsigned long *supported)
 {
@@ -103,11 +104,10 @@ bool kvmi_monitor_bp_intercept(struct kvm_vcpu *vcpu, u32 dbg)
 }
 EXPORT_SYMBOL(kvmi_monitor_bp_intercept);
 
-#if 0
 static bool monitor_bp_fct_kvmi(struct kvm_vcpu *vcpu, bool enable)
 {
 	if (enable) {
-		if (static_call(kvm_x86_bp_intercepted)(vcpu))
+		if (vcpu->arch.mdcr_el2 & MDCR_EL2_TDE)
 			return true;
 	} else if (!vcpu->arch.kvmi->breakpoint.kvmi_intercepted)
 		return true;
@@ -120,7 +120,7 @@ static bool monitor_bp_fct_kvmi(struct kvm_vcpu *vcpu, bool enable)
 static bool monitor_bp_fct_kvm(struct kvm_vcpu *vcpu, bool enable)
 {
 	if (enable) {
-		if (static_call(kvm_x86_bp_intercepted)(vcpu))
+		if (vcpu->arch.mdcr_el2 & MDCR_EL2_TDE)
 			return true;
 	} else if (!vcpu->arch.kvmi->breakpoint.kvm_intercepted)
 		return true;
@@ -153,6 +153,7 @@ static void kvmi_arch_disable_bp_intercept(struct kvm_vcpu *vcpu)
 	vcpu->arch.kvmi->breakpoint.kvm_intercepted = false;
 }
 
+#if 0
 static bool monitor_cr3w_fct_kvmi(struct kvm_vcpu *vcpu, bool enable)
 {
 	vcpu->arch.kvmi->cr3w.kvmi_intercepted = enable;
@@ -419,49 +420,49 @@ int kvmi_arch_cmd_control_intercept(struct kvm_vcpu *vcpu,
 				    unsigned int event_id, bool enable)
 {
 	int err = 0;
-#if 0
 	switch (event_id) {
 	case KVMI_VCPU_EVENT_BREAKPOINT:
 		err = kvmi_control_bp_intercept(vcpu, enable);
 		break;
+#if 0
 	case KVMI_VCPU_EVENT_DESCRIPTOR:
 		err = kvmi_control_desc_intercept(vcpu, enable);
 		break;
+#endif
 	default:
 		break;
 	}
-#endif
 	return err;
 }
 
 void kvmi_arch_breakpoint_event(struct kvm_vcpu *vcpu, u64 gva, u8 insn_len)
 {
-#if 0
 	u32 action;
 	u64 gpa;
 
-	gpa = kvm_mmu_gva_to_gpa_system(vcpu, gva, 0, NULL);
+	// TODO: check if this line is correct.
+	gpa = vcpu->arch.hw_mmu->pgt->mm_ops->virt_to_phys((void*) gva);
 
 	action = kvmi_msg_send_vcpu_bp(vcpu, gpa, insn_len);
 	switch (action) {
 	case KVMI_EVENT_ACTION_CONTINUE:
-		kvm_queue_exception(vcpu, BP_VECTOR);
-		break;
+		printk("UNSUPPORTED ACTION CONTINUE ON BREAKPOINT\n");
+		//kvm_queue_exception(vcpu, BP_VECTOR);
+		//break;
 	case KVMI_EVENT_ACTION_RETRY:
 		/* rip was most likely adjusted past the INT 3 instruction */
 		break;
 	default:
 		kvmi_handle_common_event_actions(vcpu, action);
 	}
-#endif
 }
 
 static void kvmi_arch_restore_interception(struct kvm_vcpu *vcpu)
 {
+	kvmi_arch_disable_bp_intercept(vcpu);
 #if 0
 	struct kvmi_interception *arch_vcpui = vcpu->arch.kvmi;
 
-	kvmi_arch_disable_bp_intercept(vcpu);
 	kvmi_arch_disable_cr3w_intercept(vcpu);
 	kvmi_arch_disable_desc_intercept(vcpu);
 	kvmi_arch_disable_msrw_intercept(vcpu, arch_vcpui->msrw.kvmi_mask.low);
@@ -473,7 +474,7 @@ bool kvmi_arch_clean_up_interception(struct kvm_vcpu *vcpu)
 {
 	struct kvmi_interception *arch_vcpui = vcpu->arch.kvmi;
 
-	if (!arch_vcpui)// || !arch_vcpui->cleanup)
+	if (!arch_vcpui || !arch_vcpui->cleanup)
 		return false;
 
 	if (arch_vcpui->restore_interception)
@@ -528,7 +529,7 @@ void kvmi_arch_request_interception_cleanup(struct kvm_vcpu *vcpu,
 
 	if (arch_vcpui) {
 		arch_vcpui->restore_interception = restore_interception;
-		//arch_vcpui->cleanup = true;
+		arch_vcpui->cleanup = true;
 	}
 }
 

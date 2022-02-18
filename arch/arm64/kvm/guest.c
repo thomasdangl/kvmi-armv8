@@ -920,17 +920,7 @@ int kvm_arch_vcpu_ioctl_translate(struct kvm_vcpu *vcpu,
 	return -EINVAL;
 }
 
-/**
- * kvm_arch_vcpu_ioctl_set_guest_debug - set up guest debugging
- * @kvm:	pointer to the KVM struct
- * @kvm_guest_debug: the ioctl data buffer
- *
- * This sets up and enables the VM for guest debugging. Userspace
- * passes in a control flag to enable different debug types and
- * potentially other architecture specific information in the rest of
- * the structure.
- */
-int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+int kvm_arch_vcpu_set_guest_debug(struct kvm_vcpu *vcpu,
 					struct kvm_guest_debug *dbg)
 {
 	int ret = 0;
@@ -957,6 +947,22 @@ int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
 
 out:
 	return ret;
+}
+
+/**
+ * kvm_arch_vcpu_ioctl_set_guest_debug - set up guest debugging
+ * @kvm:	pointer to the KVM struct
+ * @kvm_guest_debug: the ioctl data buffer
+ *
+ * This sets up and enables the VM for guest debugging. Userspace
+ * passes in a control flag to enable different debug types and
+ * potentially other architecture specific information in the rest of
+ * the structure.
+ */
+int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+					struct kvm_guest_debug *dbg)
+{
+	return kvm_arch_vcpu_set_guest_debug(vcpu, dbg);
 }
 
 int kvm_arm_vcpu_arch_set_attr(struct kvm_vcpu *vcpu,

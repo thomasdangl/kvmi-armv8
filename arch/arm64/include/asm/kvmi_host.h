@@ -18,10 +18,9 @@ struct kvmi_monitor_interception {
 };
 
 struct kvmi_interception {
+	bool cleanup;
 	bool restore_interception;
 	struct kvmi_monitor_interception breakpoint;
-	struct kvmi_monitor_interception cr3w;
-	struct kvmi_monitor_interception descriptor;
 };
 
 struct kvm_vcpu_arch_introspection {
