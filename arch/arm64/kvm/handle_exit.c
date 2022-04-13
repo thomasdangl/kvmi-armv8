@@ -122,7 +122,7 @@ static int kvm_handle_guest_debug(struct kvm_vcpu *vcpu)
 	u32 esr = kvm_vcpu_get_esr(vcpu);
 
 	if (!kvmi_breakpoint_event(vcpu, vcpu->arch.fault.far_el2, 4))
-		return 0;
+		return 1;
 
 	run->exit_reason = KVM_EXIT_DEBUG;
 	run->debug.arch.hsr = esr;

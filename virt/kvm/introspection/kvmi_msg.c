@@ -809,9 +809,9 @@ int __kvmi_send_vcpu_event(struct kvm_vcpu *vcpu, u32 ev_id,
 out:
 	vcpui->waiting_for_reply = false;
 
-	if (err) {
+	if (err)
 		kvmi_sock_shutdown(kvmi);
-	} else {
+	else {
 		kvmi_arch_post_reply(vcpu);
 		*action = vcpui->reply.action;
 	}

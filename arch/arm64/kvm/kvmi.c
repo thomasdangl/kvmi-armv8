@@ -9,6 +9,7 @@
 #include "../../../virt/kvm/introspection/kvmi_int.h"
 #include "kvmi.h"
 #include <asm/kvm_pgtable.h>
+#include <asm/kvm_emulate.h>
 
 void kvmi_arch_init_vcpu_events_mask(unsigned long *supported)
 {
@@ -440,17 +441,15 @@ void kvmi_arch_breakpoint_event(struct kvm_vcpu *vcpu, u64 gva, u8 insn_len)
 	u32 action;
 	u64 gpa;
 
-	// TODO: check if this line is correct.
 	gpa = vcpu->arch.hw_mmu->pgt->mm_ops->virt_to_phys((void*) gva);
 
 	action = kvmi_msg_send_vcpu_bp(vcpu, gpa, insn_len);
 	switch (action) {
 	case KVMI_EVENT_ACTION_CONTINUE:
 		printk("UNSUPPORTED ACTION CONTINUE ON BREAKPOINT\n");
-		//kvm_queue_exception(vcpu, BP_VECTOR);
-		//break;
+		break;
 	case KVMI_EVENT_ACTION_RETRY:
-		/* rip was most likely adjusted past the INT 3 instruction */
+		/* pc was most likely adjusted past the breakpoint */
 		break;
 	default:
 		kvmi_handle_common_event_actions(vcpu, action);
@@ -491,8 +490,8 @@ bool kvmi_arch_vcpu_alloc_interception(struct kvm_vcpu *vcpu)
 	if (!arch_vcpui)
 		return false;
 
-#if 0
 	arch_vcpui->breakpoint.monitor_fct = monitor_bp_fct_kvm;
+#if 0
 	arch_vcpui->cr3w.monitor_fct = monitor_cr3w_fct_kvm;
 	arch_vcpui->descriptor.monitor_fct = monitor_desc_fct_kvm;
 	arch_vcpui->msrw.monitor_fct = monitor_msrw_fct_kvm;
