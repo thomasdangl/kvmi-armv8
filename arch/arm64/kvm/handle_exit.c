@@ -121,8 +121,21 @@ static int kvm_handle_guest_debug(struct kvm_vcpu *vcpu)
 	struct kvm_run *run = vcpu->run;
 	u32 esr = kvm_vcpu_get_esr(vcpu);
 
-	if (!kvmi_breakpoint_event(vcpu, vcpu->arch.fault.far_el2, 4))
-		return 1;
+	switch (ESR_ELx_EC(esr)) {
+	case ESR_ELx_EC_BRK64:
+		if (!kvmi_breakpoint_event(vcpu, vcpu->arch.fault.far_el2, 4))
+			return 1;
+		break;
+	case ESR_ELx_EC_SOFTSTP_LOW:
+		if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP)
+		{
+			kvmi_singlestep_done(vcpu);
+			return 1;
+		}
+		break;
+	default:
+		break;
+	}
 
 	run->exit_reason = KVM_EXIT_DEBUG;
 	run->debug.arch.hsr = esr;

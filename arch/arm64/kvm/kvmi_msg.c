@@ -252,7 +252,6 @@ static int handle_vcpu_control_singlestep(const struct kvmi_vcpu_msg_job *job,
 					  const struct kvmi_msg_hdr *msg,
 					  const void *_req)
 {
-#if 0
 	const struct kvmi_vcpu_control_singlestep *req = _req;
 	struct kvm_vcpu *vcpu = job->vcpu;
 	int ec = 0;
@@ -269,11 +268,6 @@ static int handle_vcpu_control_singlestep(const struct kvmi_vcpu_msg_job *job,
 		goto reply;
 	}
 
-	if (!kvm_x86_ops.control_singlestep) {
-		ec = -KVM_EOPNOTSUPP;
-		goto reply;
-	}
-
 	if (req->enable)
 		kvmi_arch_start_singlestep(vcpu);
 	else
@@ -283,8 +277,6 @@ static int handle_vcpu_control_singlestep(const struct kvmi_vcpu_msg_job *job,
 
 reply:
 	return kvmi_msg_vcpu_reply(job, msg, ec, NULL, 0);
-#endif
-	return -KVM_EOPNOTSUPP;
 }
 
 static int handle_vcpu_translate_gva(const struct kvmi_vcpu_msg_job *job,

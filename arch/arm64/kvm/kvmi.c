@@ -425,11 +425,6 @@ int kvmi_arch_cmd_control_intercept(struct kvm_vcpu *vcpu,
 	case KVMI_VCPU_EVENT_BREAKPOINT:
 		err = kvmi_control_bp_intercept(vcpu, enable);
 		break;
-#if 0
-	case KVMI_VCPU_EVENT_DESCRIPTOR:
-		err = kvmi_control_desc_intercept(vcpu, enable);
-		break;
-#endif
 	default:
 		break;
 	}
@@ -1018,18 +1013,31 @@ static void kvmi_track_flush_slot(struct kvm *kvm, struct kvm_memory_slot *slot,
 
 void kvmi_arch_features(struct kvmi_features *feat)
 {
-	//feat->singlestep = !!kvm_x86_ops.control_singlestep;
-	feat->singlestep = false;
+	feat->singlestep = true;
 }
 
 void kvmi_arch_start_singlestep(struct kvm_vcpu *vcpu)
 {
-	//static_call(kvm_x86_control_singlestep)(vcpu, true);
+	struct kvm_guest_debug dbg = {};
+	dbg.control = vcpu->guest_debug;
+
+	if (dbg.control & KVM_GUESTDBG_ENABLE)
+	{
+		dbg.control |= KVM_GUESTDBG_SINGLESTEP;
+		kvm_arch_vcpu_set_guest_debug(vcpu, &dbg);
+	}
 }
 
 void kvmi_arch_stop_singlestep(struct kvm_vcpu *vcpu)
 {
-	//static_call(kvm_x86_control_singlestep)(vcpu, false);
+	struct kvm_guest_debug dbg = {};
+	dbg.control = vcpu->guest_debug;
+
+	if (dbg.control & KVM_GUESTDBG_SINGLESTEP)
+	{
+		dbg.control &= ~KVM_GUESTDBG_SINGLESTEP;
+		kvm_arch_vcpu_set_guest_debug(vcpu, &dbg);
+	}
 }
 
 bool kvmi_update_ad_flags(struct kvm_vcpu *vcpu)
