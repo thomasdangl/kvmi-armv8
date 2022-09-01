@@ -123,7 +123,7 @@ static int kvm_handle_guest_debug(struct kvm_vcpu *vcpu)
 
 	switch (ESR_ELx_EC(esr)) {
 	case ESR_ELx_EC_BRK64:
-		if (!kvmi_breakpoint_event(vcpu, vcpu->arch.fault.far_el2, 4))
+		if (!kvmi_breakpoint_event(vcpu, vcpu->arch.ctxt.regs.pc, 4))
 			return 1;
 		break;
 	case ESR_ELx_EC_SOFTSTP_LOW:

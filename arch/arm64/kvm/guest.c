@@ -539,6 +539,7 @@ int kvm_arch_vcpu_ioctl_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 void kvm_arch_vcpu_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 {
 	regs->regs = vcpu->arch.ctxt.regs;
+	regs->elr_el1 = vcpu_read_sys_reg(vcpu, ELR_EL1);
 }
 
 void kvm_arch_vcpu_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
@@ -548,7 +549,9 @@ void kvm_arch_vcpu_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 
 void kvm_arch_vcpu_get_sregs(struct kvm_vcpu *vcpu, struct kvm_sregs *sregs)
 {
-	memcpy(&sregs->sys_regs, vcpu->arch.ctxt.sys_regs, sizeof(u64) * NR_SYS_REGS);
+	uint8_t r;
+	for (r = 0; r < NR_SYS_REGS; r++)
+		sregs->sys_regs[r] = vcpu_read_sys_reg(vcpu, r);
 }
 
 static int copy_core_reg_indices(const struct kvm_vcpu *vcpu,

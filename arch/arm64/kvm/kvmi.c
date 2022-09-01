@@ -8,6 +8,7 @@
 #include "linux/kvm_host.h"
 #include "../../../virt/kvm/introspection/kvmi_int.h"
 #include "kvmi.h"
+#include <linux/highmem.h>
 #include <asm/kvm_pgtable.h>
 #include <asm/kvm_emulate.h>
 
@@ -1038,6 +1039,54 @@ void kvmi_arch_stop_singlestep(struct kvm_vcpu *vcpu)
 		dbg.control &= ~KVM_GUESTDBG_SINGLESTEP;
 		kvm_arch_vcpu_set_guest_debug(vcpu, &dbg);
 	}
+}
+
+void kvmi_arch_flush_cache(struct kvm *kvm, u64 pfn, u64 cnt)
+{
+	struct vm_area_struct **vmas = NULL;
+	int srcu_idx = srcu_read_lock(&kvm->srcu);
+	struct page *page;
+	void *ptr_page;
+	unsigned long hva, i;
+	int locked = 0;
+
+	for (i = 0; i < cnt; i++)
+	{
+		if (!locked)
+		{
+			mmap_read_lock(kvm->mm);
+			locked = 1;
+		}
+
+		hva = gfn_to_hva(kvm, pfn + i);
+
+		if (kvm_is_error_hva(hva))
+			continue;
+
+		vmas = NULL;
+		page = NULL;
+
+		if (get_user_pages_remote(kvm->mm, hva, 1, 0, &page, vmas, &locked) != 1)
+			continue;
+
+		ptr_page = kmap(page);
+
+		if (!ptr_page)
+			continue;
+
+		// TODO: page size should be read from the page tables.
+		dcache_clean_inval_poc((unsigned long) ptr_page, ((unsigned long) ptr_page) + (1 << 12));
+
+		kunmap(ptr_page);
+	}
+
+	icache_inval_all_pou();
+	isb();
+
+	if (locked)
+		mmap_read_unlock(kvm->mm);
+
+	srcu_read_unlock(&kvm->srcu, srcu_idx);
 }
 
 bool kvmi_update_ad_flags(struct kvm_vcpu *vcpu)

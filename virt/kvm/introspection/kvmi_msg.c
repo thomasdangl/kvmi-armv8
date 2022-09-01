@@ -352,6 +352,16 @@ reply:
 	return kvmi_msg_vm_reply(kvmi, msg, ec, NULL, 0);
 }
 
+static int handle_vm_flush_cache(struct kvm_introspection *kvmi,
+				     const struct kvmi_msg_hdr *msg,
+				     const void *_req)
+{
+	const struct kvmi_vm_flush_cache *req = _req;
+	kvmi_arch_flush_cache(kvmi->kvm, req->pfn, req->cnt);
+	return kvmi_msg_vm_reply(kvmi, msg, 0, NULL, 0);
+
+}
+
 /*
  * These commands are executed by the receiving thread.
  */
@@ -366,6 +376,7 @@ static const kvmi_vm_msg_fct msg_vm[] = {
 	[KVMI_VM_READ_PHYSICAL]   = handle_vm_read_physical,
 	[KVMI_VM_SET_PAGE_ACCESS] = handle_vm_set_page_access,
 	[KVMI_VM_WRITE_PHYSICAL]  = handle_vm_write_physical,
+	[KVMI_VM_FLUSH_CACHE]     = handle_vm_flush_cache
 };
 
 static kvmi_vm_msg_fct get_vm_msg_handler(u16 id)

@@ -30,6 +30,7 @@ enum {
 	KVMI_VM_PAUSE_VCPU      = KVMI_VM_MESSAGE_ID(8),
 	KVMI_VM_CONTROL_CLEANUP = KVMI_VM_MESSAGE_ID(9),
 	KVMI_VM_SET_PAGE_ACCESS = KVMI_VM_MESSAGE_ID(10),
+	KVMI_VM_FLUSH_CACHE	= KVMI_VM_MESSAGE_ID(11),
 
 	KVMI_NEXT_VM_MESSAGE
 };
@@ -208,6 +209,11 @@ struct kvmi_vm_set_page_access {
 	__u16 padding1;
 	__u32 padding2;
 	struct kvmi_page_access_entry entries[0];
+};
+
+struct kvmi_vm_flush_cache {
+	__u64 pfn;
+	__u64 cnt;
 };
 
 struct kvmi_vcpu_event_pf {
