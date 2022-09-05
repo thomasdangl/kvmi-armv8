@@ -32,6 +32,8 @@ struct kvm_vcpu_introspection {
 	struct kvmi_vcpu_reply reply;
 	bool waiting_for_reply;
 
+	bool in_trap_exit;
+
 	unsigned long *ev_enable_mask;
 
 	struct {

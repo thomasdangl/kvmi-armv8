@@ -45,6 +45,8 @@
 #include <kvm/arm_pmu.h>
 #include <kvm/arm_psci.h>
 
+#include "../../../virt/kvm/introspection/kvmi_int.h"
+
 static enum kvm_mode kvm_mode = KVM_MODE_DEFAULT;
 DEFINE_STATIC_KEY_FALSE(kvm_protected_mode_initialized);
 
@@ -765,6 +767,7 @@ static bool kvm_vcpu_exit_request(struct kvm_vcpu *vcpu, int *ret)
 int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 {
 	struct kvm_run *run = vcpu->run;
+	struct kvm_vcpu_introspection *vcpui = VCPUI(vcpu);
 	int ret;
 
 	if (unlikely(!kvm_vcpu_initialized(vcpu)))
@@ -858,6 +861,23 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		kvm_arm_clear_debug(vcpu);
 
 		/*
+		 * Make sure that we do not inject VGIC interrupts
+		 * in case we get preempted without giving the
+		 * introspection application the chance to enable
+		 * single-stepping on its own.
+		 *
+		 * Actually this should be kvm_arch_hardware_enable
+		 * / kvm_arch_hardware_disable, as per the following patch.
+		 *
+		 * [PATCH v3 06/22] KVM: arm64: Simplify the CPUHP logic
+		 *
+		 * However, I do not want to backport it, so we use this
+		 * approach until we rebase onto 6.0.
+		 */
+		if (vcpui && ARM_EXCEPTION_CODE(ret) == ARM_EXCEPTION_TRAP)
+			vcpui->in_trap_exit = true;
+
+		/*
 		 * We must sync the PMU state before the vgic state so
 		 * that the vgic can properly sample the updated state of the
 		 * interrupt line.
@@ -929,6 +949,14 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 		}
 
 		ret = handle_exit(vcpu, ret);
+
+		/*
+		 * The introspection application had the chance to suppress
+		 * the timer by enabling single-stepping.
+		 * Now we can fallback to the original behavior.
+		 */
+		if (vcpui)
+			vcpui->in_trap_exit = false;
 	}
 
 	/* Tell userspace about in-kernel device output levels */

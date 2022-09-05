@@ -22,6 +22,8 @@
 
 #include "trace.h"
 
+#include "../../../virt/kvm/introspection/kvmi_int.h"
+
 static struct timecounter *timecounter;
 static unsigned int host_vtimer_irq;
 static unsigned int host_ptimer_irq;
@@ -383,6 +385,10 @@ static void kvm_timer_update_irq(struct kvm_vcpu *vcpu, bool new_level,
 				 struct arch_timer_context *timer_ctx)
 {
 	int ret;
+	struct kvm_vcpu_introspection *vcpui = VCPUI(vcpu);
+
+	if (vcpui && (vcpui->in_trap_exit || vcpui->singlestep.loop))
+		return;
 
 	timer_ctx->irq.level = new_level;
 	trace_kvm_timer_update_irq(vcpu->vcpu_id, timer_ctx->irq.irq,

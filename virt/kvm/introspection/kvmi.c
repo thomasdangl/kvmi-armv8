@@ -215,6 +215,8 @@ static bool kvmi_alloc_vcpui(struct kvm_vcpu *vcpu)
 	INIT_LIST_HEAD(&vcpui->job_list);
 	spin_lock_init(&vcpui->job_lock);
 
+	vcpui->in_trap_exit = false;
+
 	vcpu->kvmi = vcpui;
 
 	return kvmi_arch_vcpu_alloc_interception(vcpu);
@@ -437,6 +439,7 @@ static void kvmi_job_release_vcpu(struct kvm_vcpu *vcpu, void *ctx)
 
 	atomic_set(&vcpui->pause_requests, 0);
 	vcpui->waiting_for_reply = false;
+	vcpui->in_trap_exit = false;
 
 	if (vcpui->singlestep.loop) {
 		kvmi_arch_stop_singlestep(vcpu);
