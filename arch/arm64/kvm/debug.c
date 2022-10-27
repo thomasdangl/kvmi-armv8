@@ -21,6 +21,7 @@
 				DBG_MDSCR_KDE | \
 				DBG_MDSCR_MDE)
 
+static DEFINE_PER_CPU(u64, hcr_el2);
 static DEFINE_PER_CPU(u64, mdcr_el2);
 
 /**
@@ -65,7 +66,19 @@ static void restore_guest_debug_regs(struct kvm_vcpu *vcpu)
 
 void kvm_arm_init_debug(void)
 {
+	__this_cpu_write(hcr_el2, kvm_call_hyp_ret(__kvm_get_hcr_el2));
 	__this_cpu_write(mdcr_el2, kvm_call_hyp_ret(__kvm_get_mdcr_el2));
+}
+
+static void kvm_arm_setup_hcr_el2(struct kvm_vcpu *vcpu)
+{
+	// TODO: this might cause problems for ARMv7...
+	vcpu->arch.hcr_el2 &= ~HCR_TVM;
+
+	if (vcpu->guest_debug & KVM_GUESTDBG_USE_TTBR0W)
+		vcpu->arch.hcr_el2 |= HCR_TVM;
+
+	trace_kvm_arm_set_dreg32("HCR_EL2", vcpu->arch.hcr_el2);
 }
 
 /**
@@ -123,6 +136,7 @@ static void kvm_arm_setup_mdcr_el2(struct kvm_vcpu *vcpu)
 void kvm_arm_vcpu_init_debug(struct kvm_vcpu *vcpu)
 {
 	preempt_disable();
+	kvm_arm_setup_hcr_el2(vcpu);
 	kvm_arm_setup_mdcr_el2(vcpu);
 	preempt_enable();
 }
@@ -154,10 +168,12 @@ void kvm_arm_reset_debug_ptr(struct kvm_vcpu *vcpu)
 
 void kvm_arm_setup_debug(struct kvm_vcpu *vcpu)
 {
-	unsigned long mdscr, orig_mdcr_el2 = vcpu->arch.mdcr_el2;
+	unsigned long mdscr, orig_hcr_el2 = vcpu->arch.hcr_el2,
+		orig_mdcr_el2 = vcpu->arch.mdcr_el2;
 
 	trace_kvm_arm_setup_debug(vcpu, vcpu->guest_debug);
 
+	kvm_arm_setup_hcr_el2(vcpu);
 	kvm_arm_setup_mdcr_el2(vcpu);
 
 	/* Is Guest debugging in effect? */
@@ -232,6 +248,10 @@ void kvm_arm_setup_debug(struct kvm_vcpu *vcpu)
 	/* If KDE or MDE are set, perform a full save/restore cycle. */
 	if (vcpu_read_sys_reg(vcpu, MDSCR_EL1) & (DBG_MDSCR_KDE | DBG_MDSCR_MDE))
 		vcpu->arch.flags |= KVM_ARM64_DEBUG_DIRTY;
+
+	/* Write hcr_el2 changes since vcpu_load on VHE systems */
+	if (has_vhe() && orig_hcr_el2 != vcpu->arch.hcr_el2)
+		write_sysreg(vcpu->arch.hcr_el2, hcr_el2);
 
 	/* Write mdcr_el2 changes since vcpu_load on VHE systems */
 	if (has_vhe() && orig_mdcr_el2 != vcpu->arch.mdcr_el2)

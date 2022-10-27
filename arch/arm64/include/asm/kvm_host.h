@@ -293,6 +293,7 @@ struct kvm_vcpu_arch {
 	u64 cptr_el2;
 
 	/* Values of trap registers for the host before guest entry. */
+	u64 hcr_el2_host;
 	u64 mdcr_el2_host;
 
 	/* Exception Information */
@@ -434,7 +435,8 @@ struct kvm_vcpu_arch {
 #define KVM_GUESTDBG_VALID_MASK (KVM_GUESTDBG_ENABLE | \
 				 KVM_GUESTDBG_USE_SW_BP | \
 				 KVM_GUESTDBG_USE_HW | \
-				 KVM_GUESTDBG_SINGLESTEP)
+				 KVM_GUESTDBG_SINGLESTEP | \
+				 KVM_GUESTDBG_USE_TTBR0W)
 /*
  * When KVM_ARM64_PENDING_EXCEPTION is set, KVM_ARM64_EXCEPT_MASK can
  * take the following values:

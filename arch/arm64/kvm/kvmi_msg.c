@@ -87,21 +87,18 @@ static int handle_vcpu_control_cr(const struct kvmi_vcpu_msg_job *job,
 				  const struct kvmi_msg_hdr *msg,
 				  const void *_req)
 {
-#if 0
 	const struct kvmi_vcpu_control_cr *req = _req;
 	int ec;
 
 	if (req->padding1 || req->padding2 || req->enable > 1)
 		ec = -KVM_EINVAL;
-	else if (req->cr != 0 && req->cr != 3 && req->cr != 4)
+	else if (req->cr != 3)
 		ec = -KVM_EINVAL;
 	else
 		ec = kvmi_arch_cmd_vcpu_control_cr(job->vcpu, req->cr,
 						   req->enable == 1);
 
 	return kvmi_msg_vcpu_reply(job, msg, ec, NULL, 0);
-#endif
-	return -KVM_EOPNOTSUPP;
 }
 
 static int handle_vcpu_inject_exception(const struct kvmi_vcpu_msg_job *job,

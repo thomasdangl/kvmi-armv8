@@ -151,6 +151,7 @@ struct kvm_debug_exit_arch {
 
 #define KVM_GUESTDBG_USE_SW_BP		(1 << 16)
 #define KVM_GUESTDBG_USE_HW		(1 << 17)
+#define KVM_GUESTDBG_USE_TTBR0W		(1 << 18)
 
 struct kvm_sync_regs {
 	/* Used with KVM_CAP_ARM_USER_IRQ */

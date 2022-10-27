@@ -156,20 +156,23 @@ static bool access_vm_reg(struct kvm_vcpu *vcpu,
 			  const struct sys_reg_desc *r)
 {
 	bool was_enabled = vcpu_has_cache_enabled(vcpu);
-	u64 val, mask, shift;
+	u64 val, oval, mask, shift;
 
 	BUG_ON(!p->is_write);
 
 	get_access_mask(r, &mask, &shift);
+	oval = vcpu_read_sys_reg(vcpu, r->reg);
 
-	if (~mask) {
-		val = vcpu_read_sys_reg(vcpu, r->reg);
-		val &= ~mask;
-	} else {
+	if (~mask)
+		val = oval & ~mask;
+	else
 		val = 0;
-	}
 
 	val |= (p->regval & (mask >> shift)) << shift;
+	if ((vcpu->guest_debug & (KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_TTBR0W))
+			== (KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_TTBR0W)
+		&& r->reg == TTBR0_EL1)
+		kvmi_cr_event(vcpu, 3, oval, &val);
 	vcpu_write_sys_reg(vcpu, val, r->reg);
 
 	kvm_toggle_cache(vcpu, was_enabled);

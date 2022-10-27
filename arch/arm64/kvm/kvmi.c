@@ -134,12 +134,17 @@ static bool monitor_bp_fct_kvm(struct kvm_vcpu *vcpu, bool enable)
 
 static int kvmi_control_bp_intercept(struct kvm_vcpu *vcpu, bool enable)
 {
-	struct kvm_guest_debug dbg = {};
+	struct kvm_guest_debug dbg = { .control = vcpu->guest_debug };
 	int err = 0;
 
 	vcpu->arch.kvmi->breakpoint.monitor_fct = monitor_bp_fct_kvmi;
+
 	if (enable)
-		dbg.control = KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_SW_BP;
+		dbg.control |= KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_SW_BP;
+	else
+		dbg.control &= KVM_GUESTDBG_USE_SW_BP;
+	if (dbg.control == KVM_GUESTDBG_ENABLE)
+		dbg.control = 0;
 
 	err = kvm_arch_vcpu_set_guest_debug(vcpu, &dbg);
 	vcpu->arch.kvmi->breakpoint.monitor_fct = monitor_bp_fct_kvm;
@@ -155,26 +160,24 @@ static void kvmi_arch_disable_bp_intercept(struct kvm_vcpu *vcpu)
 	vcpu->arch.kvmi->breakpoint.kvm_intercepted = false;
 }
 
-#if 0
-static bool monitor_cr3w_fct_kvmi(struct kvm_vcpu *vcpu, bool enable)
+static bool monitor_ttbr0w_fct_kvmi(struct kvm_vcpu *vcpu, bool enable)
 {
-	vcpu->arch.kvmi->cr3w.kvmi_intercepted = enable;
+	vcpu->arch.kvmi->ttbr0w.kvmi_intercepted = enable;
 
 	if (enable)
-		vcpu->arch.kvmi->cr3w.kvm_intercepted =
-			static_call(kvm_x86_cr3_write_intercepted)(vcpu);
-	else if (vcpu->arch.kvmi->cr3w.kvm_intercepted)
+		vcpu->arch.kvmi->ttbr0w.kvm_intercepted = vcpu->arch.hcr_el2 & HCR_TVM;
+	else if (vcpu->arch.kvmi->ttbr0w.kvm_intercepted)
 		return true;
 
 	return false;
 }
 
-static bool monitor_cr3w_fct_kvm(struct kvm_vcpu *vcpu, bool enable)
+static bool monitor_ttbr0w_fct_kvm(struct kvm_vcpu *vcpu, bool enable)
 {
-	if (!vcpu->arch.kvmi->cr3w.kvmi_intercepted)
+	if (!vcpu->arch.kvmi->ttbr0w.kvmi_intercepted)
 		return false;
 
-	vcpu->arch.kvmi->cr3w.kvm_intercepted = enable;
+	vcpu->arch.kvmi->ttbr0w.kvm_intercepted = enable;
 
 	if (!enable)
 		return true;
@@ -183,32 +186,43 @@ static bool monitor_cr3w_fct_kvm(struct kvm_vcpu *vcpu, bool enable)
 }
 
 /*
- * Returns true if one side (kvm or kvmi) tries to disable the CR3 write
+ * Returns true if one side (kvm or kvmi) tries to disable the TTBR0 write
  * interception while the other side is still tracking it.
  */
-bool kvmi_monitor_cr3w_intercept(struct kvm_vcpu *vcpu, bool enable)
+bool kvmi_monitor_ttbr0w_intercept(struct kvm_vcpu *vcpu, bool enable)
 {
 	struct kvmi_interception *arch_vcpui = READ_ONCE(vcpu->arch.kvmi);
 
-	return (arch_vcpui && arch_vcpui->cr3w.monitor_fct(vcpu, enable));
+	return (arch_vcpui && arch_vcpui->ttbr0w.monitor_fct(vcpu, enable));
 }
-EXPORT_SYMBOL(kvmi_monitor_cr3w_intercept);
+EXPORT_SYMBOL(kvmi_monitor_ttbr0w_intercept);
 
-static void kvmi_control_cr3w_intercept(struct kvm_vcpu *vcpu, bool enable)
+static void kvmi_control_ttbr0w_intercept(struct kvm_vcpu *vcpu, bool enable)
 {
-	vcpu->arch.kvmi->cr3w.monitor_fct = monitor_cr3w_fct_kvmi;
-	static_call(kvm_x86_control_cr3_intercept)(vcpu, CR_TYPE_W, enable);
-	vcpu->arch.kvmi->cr3w.monitor_fct = monitor_cr3w_fct_kvm;
+	struct kvm_guest_debug dbg = { .control = vcpu->guest_debug };
+
+	vcpu->arch.kvmi->ttbr0w.monitor_fct = monitor_ttbr0w_fct_kvmi;
+
+	if (enable)
+		dbg.control |= KVM_GUESTDBG_ENABLE | KVM_GUESTDBG_USE_TTBR0W;
+	else
+		dbg.control &= KVM_GUESTDBG_USE_TTBR0W;
+	if (dbg.control == KVM_GUESTDBG_ENABLE)
+		dbg.control = 0;
+
+	kvm_arch_vcpu_set_guest_debug(vcpu, &dbg);
+	vcpu->arch.kvmi->ttbr0w.monitor_fct = monitor_ttbr0w_fct_kvm;
 }
 
-static void kvmi_arch_disable_cr3w_intercept(struct kvm_vcpu *vcpu)
+static void kvmi_arch_disable_ttbr0w_intercept(struct kvm_vcpu *vcpu)
 {
-	kvmi_control_cr3w_intercept(vcpu, false);
+	kvmi_control_ttbr0w_intercept(vcpu, false);
 
-	vcpu->arch.kvmi->cr3w.kvmi_intercepted = false;
-	vcpu->arch.kvmi->cr3w.kvm_intercepted = false;
+	vcpu->arch.kvmi->ttbr0w.kvmi_intercepted = false;
+	vcpu->arch.kvmi->ttbr0w.kvm_intercepted = false;
 }
 
+#if 0
 /*
  * Returns true if one side (kvm or kvmi) tries to disable the descriptor
  * interception while the other side is still tracking it.
@@ -455,10 +469,9 @@ void kvmi_arch_breakpoint_event(struct kvm_vcpu *vcpu, u64 gva, u8 insn_len)
 static void kvmi_arch_restore_interception(struct kvm_vcpu *vcpu)
 {
 	kvmi_arch_disable_bp_intercept(vcpu);
+	kvmi_arch_disable_ttbr0w_intercept(vcpu);
 #if 0
 	struct kvmi_interception *arch_vcpui = vcpu->arch.kvmi;
-
-	kvmi_arch_disable_cr3w_intercept(vcpu);
 	kvmi_arch_disable_desc_intercept(vcpu);
 	kvmi_arch_disable_msrw_intercept(vcpu, arch_vcpui->msrw.kvmi_mask.low);
 	kvmi_arch_disable_msrw_intercept(vcpu, arch_vcpui->msrw.kvmi_mask.high);
@@ -487,8 +500,8 @@ bool kvmi_arch_vcpu_alloc_interception(struct kvm_vcpu *vcpu)
 		return false;
 
 	arch_vcpui->breakpoint.monitor_fct = monitor_bp_fct_kvm;
+	arch_vcpui->ttbr0w.monitor_fct = monitor_ttbr0w_fct_kvm;
 #if 0
-	arch_vcpui->cr3w.monitor_fct = monitor_cr3w_fct_kvm;
 	arch_vcpui->descriptor.monitor_fct = monitor_desc_fct_kvm;
 	arch_vcpui->msrw.monitor_fct = monitor_msrw_fct_kvm;
 #endif
@@ -496,7 +509,7 @@ bool kvmi_arch_vcpu_alloc_interception(struct kvm_vcpu *vcpu)
 	/*
 	 * paired with:
 	 *  - kvmi_monitor_bp_intercept()
-	 *  - kvmi_monitor_cr3w_intercept()
+	 *  - kvmi_monitor_ttbr0_intercept()
 	 *  - kvmi_monitor_desc_intercept()
 	 *  - kvmi_monitor_msrw_intercept()
 	 */
@@ -530,28 +543,21 @@ void kvmi_arch_request_interception_cleanup(struct kvm_vcpu *vcpu,
 
 int kvmi_arch_cmd_vcpu_control_cr(struct kvm_vcpu *vcpu, int cr, bool enable)
 {
-#if 0
+	// This number is void of any meaning on ARM64, it is only kept for simplicity.
 	if (cr == 3)
-		kvmi_control_cr3w_intercept(vcpu, enable);
-
-	if (enable)
-		set_bit(cr, VCPUI(vcpu)->arch.cr_mask);
-	else
-		clear_bit(cr, VCPUI(vcpu)->arch.cr_mask);
-#endif
+		kvmi_control_ttbr0w_intercept(vcpu, enable);
 
 	return 0;
 }
 
-#if 0
 static bool __kvmi_cr_event(struct kvm_vcpu *vcpu, unsigned int cr,
-			    u64 old_value, unsigned long *new_value)
+			    u64 old_value, u64 *new_value)
 {
 	u64 reply_value;
 	u32 action;
 	bool ret;
 
-	if (!test_bit(cr, VCPUI(vcpu)->arch.cr_mask))
+	if (cr != 3 || !(vcpu->guest_debug & KVM_GUESTDBG_USE_TTBR0W))
 		return true;
 
 	action = kvmi_msg_send_vcpu_cr(vcpu, cr, old_value, *new_value,
@@ -568,12 +574,10 @@ static bool __kvmi_cr_event(struct kvm_vcpu *vcpu, unsigned int cr,
 
 	return ret;
 }
-#endif
 
 bool kvmi_cr_event(struct kvm_vcpu *vcpu, unsigned int cr,
-		   unsigned long old_value, unsigned long *new_value)
+		   u64 old_value, u64 *new_value)
 {
-#if 0
 	struct kvm_introspection *kvmi;
 	bool ret = true;
 
@@ -590,13 +594,10 @@ bool kvmi_cr_event(struct kvm_vcpu *vcpu, unsigned int cr,
 	kvmi_put(vcpu->kvm);
 
 	return ret;
-#endif
-	return true;
 }
 
-bool kvmi_cr3_intercepted(struct kvm_vcpu *vcpu)
+bool kvmi_ttbr0_intercepted(struct kvm_vcpu *vcpu)
 {
-#if 0
 	struct kvm_introspection *kvmi;
 	bool ret;
 
@@ -604,15 +605,13 @@ bool kvmi_cr3_intercepted(struct kvm_vcpu *vcpu)
 	if (!kvmi)
 		return false;
 
-	ret = test_bit(3, VCPUI(vcpu)->arch.cr_mask);
+	ret = vcpu->guest_debug & KVM_GUESTDBG_USE_TTBR0W;
 
 	kvmi_put(vcpu->kvm);
 
 	return ret;
-#endif
-	return false;
 }
-EXPORT_SYMBOL(kvmi_cr3_intercepted);
+EXPORT_SYMBOL(kvmi_ttbr0_intercepted);
 
 int kvmi_arch_cmd_vcpu_inject_exception(struct kvm_vcpu *vcpu,
 					const struct kvmi_vcpu_inject_exception *req)
