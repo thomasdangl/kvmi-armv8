@@ -6,6 +6,9 @@
 
 //#include <asm/kvm_page_track.h>
 
+#define KVMI_MEM_SLOTS_NUM SHRT_MAX
+#define SLOTS_SIZE BITS_TO_LONGS(KVMI_MEM_SLOTS_NUM)
+
 // SHOULD NEVER BE USED
 #define KVMI_MAX_ACCESS_TREES 1
 
@@ -42,6 +45,7 @@ struct kvm_arch_introspection {
 };
 
 struct kvmi_arch_mem_access {
+	unsigned long active[3][SLOTS_SIZE];
 };
 
 #ifdef CONFIG_KVM_INTROSPECTION

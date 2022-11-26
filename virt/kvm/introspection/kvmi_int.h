@@ -120,6 +120,10 @@ void kvmi_arch_send_pending_event(struct kvm_vcpu *vcpu);
 void kvmi_arch_update_page_tracking(struct kvm *kvm,
 				    struct kvm_memory_slot *slot,
 				    struct kvmi_mem_access *m);
+bool kvmi_arch_track_pf(struct kvm_vcpu *vcpu,
+			gpa_t gpa,
+			gva_t gva,
+			u8 access);
 void kvmi_arch_flush_cache(struct kvm *kvm, u64 pfn, u64 cnt);
 void kvmi_arch_hook(struct kvm *kvm);
 void kvmi_arch_unhook(struct kvm *kvm);

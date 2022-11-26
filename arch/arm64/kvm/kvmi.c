@@ -18,13 +18,13 @@ void kvmi_arch_init_vcpu_events_mask(unsigned long *supported)
 
 	set_bit(KVMI_VCPU_EVENT_BREAKPOINT, supported);
 	set_bit(KVMI_VCPU_EVENT_CR, supported);
-	set_bit(KVMI_VCPU_EVENT_HYPERCALL, supported);
-	set_bit(KVMI_VCPU_EVENT_DESCRIPTOR, supported);
-	set_bit(KVMI_VCPU_EVENT_MSR, supported);
+	//set_bit(KVMI_VCPU_EVENT_HYPERCALL, supported);
+	//set_bit(KVMI_VCPU_EVENT_DESCRIPTOR, supported);
+	//set_bit(KVMI_VCPU_EVENT_MSR, supported);
 	set_bit(KVMI_VCPU_EVENT_PF, supported);
 	set_bit(KVMI_VCPU_EVENT_SINGLESTEP, supported);
-	set_bit(KVMI_VCPU_EVENT_TRAP, supported);
-	set_bit(KVMI_VCPU_EVENT_XSETBV, supported);
+	//set_bit(KVMI_VCPU_EVENT_TRAP, supported);
+	//set_bit(KVMI_VCPU_EVENT_XSETBV, supported);
 }
 
 void kvmi_arch_setup_vcpu_event(struct kvm_vcpu *vcpu,
@@ -855,22 +855,19 @@ bool kvmi_msr_event(struct kvm_vcpu *vcpu, struct msr_data *msr)
 	return ret;
 }
 
-#if 0
 static const struct {
 	unsigned int allow_bit;
-	enum kvm_page_track_mode track_mode;
-} track_modes[] = {
-	{ KVMI_PAGE_ACCESS_R, KVM_PAGE_TRACK_PREREAD },
-	{ KVMI_PAGE_ACCESS_W, KVM_PAGE_TRACK_PREWRITE },
-	{ KVMI_PAGE_ACCESS_X, KVM_PAGE_TRACK_PREEXEC },
+	enum kvm_pgtable_prot prot_mode;
+} prot_modes[] = {
+	{ KVMI_PAGE_ACCESS_R, KVM_PGTABLE_PROT_R },
+	{ KVMI_PAGE_ACCESS_W, KVM_PGTABLE_PROT_W },
+	{ KVMI_PAGE_ACCESS_X, KVM_PGTABLE_PROT_X },
 };
-#endif
 
 void kvmi_arch_update_page_tracking(struct kvm *kvm,
 				    struct kvm_memory_slot *slot,
 				    struct kvmi_mem_access *m)
 {
-#if 0
 	struct kvmi_arch_mem_access *arch = &m->arch;
 	int i;
 
@@ -880,23 +877,23 @@ void kvmi_arch_update_page_tracking(struct kvm *kvm,
 			return;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(track_modes); i++) {
-		unsigned int allow_bit = track_modes[i].allow_bit;
-		enum kvm_page_track_mode mode = track_modes[i].track_mode;
-		bool slot_tracked = test_bit(slot->id, arch->active[mode]);
+	for (i = 0; i < ARRAY_SIZE(prot_modes); i++) {
+		unsigned int allow_bit = prot_modes[i].allow_bit;
+		enum kvm_pgtable_prot mode = prot_modes[i].prot_mode;
+		bool slot_tracked = test_bit(slot->id, arch->active[i]);
 
 		if (m->access & allow_bit) {
 			if (slot_tracked) {
-				kvm_slot_page_track_remove_page(kvm, slot,
-								m->gfn, mode);
-				clear_bit(slot->id, arch->active[mode]);
+				kvm_pgtable_stage2_relax_perms(kvm->arch.mmu.pgt,
+						m->gfn << PAGE_SHIFT, mode);
+				clear_bit(slot->id, arch->active[i]);
 			}
 		} else if (!slot_tracked) {
-			kvm_slot_page_track_add_page(kvm, slot, m->gfn, mode);
-			set_bit(slot->id, arch->active[mode]);
+			kvm_pgtable_stage2_enforce_perms(kvm->arch.mmu.pgt,
+					m->gfn << PAGE_SHIFT, mode);
+			set_bit(slot->id, arch->active[i]);
 		}
 	}
-#endif
 }
 
 void kvmi_arch_hook(struct kvm *kvm)
@@ -1010,6 +1007,23 @@ static void kvmi_track_flush_slot(struct kvm *kvm, struct kvm_memory_slot *slot,
 	kvmi_put(kvm);
 }
 #endif
+
+bool kvmi_arch_track_pf(struct kvm_vcpu *vcpu, gpa_t gpa, gva_t gva, u8 access)
+{
+	struct kvm_introspection *kvmi;
+	bool ret = true;
+
+	kvmi = kvmi_get(vcpu->kvm);
+	if (!kvmi)
+		return true;
+
+	if (is_vcpu_event_enabled(vcpu, KVMI_VCPU_EVENT_PF))
+		ret = kvmi_pf_event(vcpu, gpa, gva, access);
+
+	kvmi_put(vcpu->kvm);
+
+	return ret;
+}
 
 void kvmi_arch_features(struct kvmi_features *feat)
 {

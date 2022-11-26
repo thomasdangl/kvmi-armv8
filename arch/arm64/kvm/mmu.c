@@ -21,6 +21,7 @@
 #include <asm/virt.h>
 
 #include "trace.h"
+#include "../../../virt/kvm/introspection/kvmi_int.h"
 
 static struct kvm_pgtable *hyp_pgtable;
 static DEFINE_MUTEX(kvm_hyp_pgd_mutex);
@@ -1192,6 +1193,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	bool is_iabt, write_fault, writable;
 	gfn_t gfn;
 	int ret, idx;
+	u8 access;
 
 	fault_status = kvm_vcpu_trap_get_fault_type(vcpu);
 
@@ -1229,6 +1231,20 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	memslot = gfn_to_memslot(vcpu->kvm, gfn);
 	hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
 	write_fault = kvm_is_write_fault(vcpu);
+
+	if (write_fault)
+		access = KVMI_PAGE_ACCESS_W;
+	else if (kvm_vcpu_trap_is_exec_fault(vcpu))
+		access = KVMI_PAGE_ACCESS_X;
+	/* TODO: this might be a bit dirty... */
+	else
+		access = KVMI_PAGE_ACCESS_R;
+
+	if (!kvmi_arch_track_pf(vcpu, fault_ipa, 0/* TODO */, access)) {
+		ret = 1;
+		goto out_unlock;
+	}
+
 	if (kvm_is_error_hva(hva) || (write_fault && !writable)) {
 		/*
 		 * The guest has put either its instructions or its page-tables
