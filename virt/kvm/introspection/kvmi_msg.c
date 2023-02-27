@@ -362,6 +362,24 @@ static int handle_vm_flush_cache(struct kvm_introspection *kvmi,
 
 }
 
+static int handle_vm_query_physical(struct kvm_introspection *kvmi,
+				const struct kvmi_msg_hdr *msg,
+				const void *_req)
+{
+	const struct kvmi_vm_query_physical *req = _req;
+	struct kvmi_vm_query_physical_reply rpl;
+	int ec;
+
+	memset(&rpl, 0, sizeof(rpl));
+
+	if (invalid_page_access(req->gfn << PAGE_SHIFT, PAGE_SIZE))
+		ec = -KVM_EINVAL;
+	else
+		ec = kvmi_cmd_query_physical(kvmi->kvm, req->gfn, &rpl.gfn, &rpl.size);
+
+	return kvmi_msg_vm_reply(kvmi, msg, ec, &rpl, sizeof(rpl));
+}
+
 /*
  * These commands are executed by the receiving thread.
  */
@@ -376,7 +394,8 @@ static const kvmi_vm_msg_fct msg_vm[] = {
 	[KVMI_VM_READ_PHYSICAL]   = handle_vm_read_physical,
 	[KVMI_VM_SET_PAGE_ACCESS] = handle_vm_set_page_access,
 	[KVMI_VM_WRITE_PHYSICAL]  = handle_vm_write_physical,
-	[KVMI_VM_FLUSH_CACHE]     = handle_vm_flush_cache
+	[KVMI_VM_FLUSH_CACHE]     = handle_vm_flush_cache,
+	[KVMI_VM_QUERY_PHYSICAL]  = handle_vm_query_physical,
 };
 
 static kvmi_vm_msg_fct get_vm_msg_handler(u16 id)

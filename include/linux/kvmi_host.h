@@ -5,6 +5,7 @@
 #ifdef CONFIG_KVM_INTROSPECTION
 
 #include <asm/kvmi_host.h>
+#include <linux/proc_fs.h>
 
 struct kvmi_vcpu_reply {
 	int error;
@@ -61,6 +62,8 @@ struct kvm_introspection {
 
 	struct radix_tree_root access_tree;
 	rwlock_t access_tree_lock;
+
+	struct proc_dir_entry *map;
 };
 
 int kvmi_version(void);

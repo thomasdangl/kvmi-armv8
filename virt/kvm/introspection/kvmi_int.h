@@ -93,6 +93,7 @@ int kvmi_cmd_read_physical(struct kvm *kvm, u64 gpa, size_t size,
 			   const struct kvmi_msg_hdr *ctx);
 int kvmi_cmd_write_physical(struct kvm *kvm, u64 gpa, size_t size,
 			    const void *buf);
+int kvmi_cmd_query_physical(struct kvm *kvm, u64 gfn, u64 *start, u64 *size);
 int kvmi_cmd_vcpu_pause(struct kvm_vcpu *vcpu, bool wait);
 int kvmi_set_gfn_access(struct kvm *kvm, gfn_t gfn, u8 access);
 bool kvmi_pf_event(struct kvm_vcpu *vcpu, gpa_t gpa, gva_t gva, u8 access);
